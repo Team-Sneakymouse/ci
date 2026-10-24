@@ -27,7 +27,7 @@ permissions:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, alphaarcadeus]
     timeout-minutes: 30
     defaults:
       run:
@@ -81,3 +81,6 @@ jobs:
           curl --fail-with-body --show-error --silent --connect-timeout 10 --max-time 120 \
             --request POST --header "Authorization: Bearer $WATCHTOWER_TOKEN" \
             "$WATCHTOWER_URL"
+      - name: Log out of registry
+        if: always() && env.REGISTRY_HOST != ''
+        run: docker logout "$REGISTRY_HOST"

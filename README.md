@@ -3,6 +3,7 @@
 Reusable GitHub Actions workflows for Team Sneakymouse. Callers own their triggers,
 path filters, prerequisite jobs and concurrency policy. The shared jobs check out
 the caller's repository and receive only its two Infisical connection secrets.
+Both shared workflows run on the organization's Linux x64 runner `alphaarcadeus`.
 
 ## Gradle publishing
 
@@ -28,7 +29,8 @@ Inputs:
 - `project-directory`: directory containing the wrapper and build; defaults to `.`.
 - `publish-task`: one Gradle task; defaults to `publishMavenPublicationToSneakyrpRepository`.
 - `publish`: defaults to `true`; `false` builds/checks without fetching secrets or publishing.
-- `runs-on`: JSON runner name or label array; defaults to `"ubuntu-latest"`.
+- `runs-on`: JSON runner name or label array; defaults to
+  `["self-hosted", "Linux", "X64", "alphaarcadeus"]`.
 
 Callers: SneakyBagOfHolding, SneakyConfigurableVoice, SneakyDiagnostics,
 SneakyDiscordLink, SneakyEconomy, SneakyGroundItems, SneakyInventoryUtils,

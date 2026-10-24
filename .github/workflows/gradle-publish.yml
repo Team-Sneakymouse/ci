@@ -18,7 +18,7 @@ on:
       runs-on:
         description: JSON runner name or label array.
         type: string
-        default: '"ubuntu-latest"'
+        default: '["self-hosted", "Linux", "X64", "alphaarcadeus"]'
     secrets:
       INFISICAL_IDENTITY_ID:
         required: false
