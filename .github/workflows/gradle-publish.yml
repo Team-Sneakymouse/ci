@@ -45,6 +45,9 @@ jobs:
           distribution: temurin
           java-version: '25'
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          # Runners keep a persistent shared Gradle home; skip the Actions cache round-trip.
+          cache-disabled: true
       - name: Build and check
         run: bash ./gradlew build --no-daemon --console=plain
       - name: Validate Infisical configuration
