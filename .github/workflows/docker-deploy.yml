@@ -37,28 +37,31 @@ jobs:
       - name: Ensure Docker daemon
         run: |
           set -euo pipefail
-          if ! docker info >/dev/null 2>&1; then
-            echo "Docker not reachable; starting service"
-            if command -v systemctl >/dev/null 2>&1; then
-              sudo systemctl start docker || true
-            fi
-            if command -v service >/dev/null 2>&1; then
-              sudo service docker start || true
-            fi
-          fi
-          for _ in $(seq 1 30); do
-            if [ -S /var/run/docker.sock ]; then
-              break
-            fi
-            sleep 1
-          done
+          # Prefer the host Docker CLI; never start a nested dockerd from the job.
+          export PATH="/usr/bin:/bin:${PATH:-}"
+          hash -r || true
+          echo "whoami=$(whoami) groups=$(id -nG)"
+          echo "docker binary: $(command -v docker)"
+          docker version || true
           if [ ! -S /var/run/docker.sock ]; then
-            echo "::error::Docker socket /var/run/docker.sock did not appear."
+            echo "::error::Host Docker socket /var/run/docker.sock is missing."
+            echo "The Actions runner must see the host dockerd socket."
             exit 1
           fi
-          # Runner user is often not in the docker group; open the socket for this job.
+          # Runner user is often not in the docker group.
           sudo chmod 666 /var/run/docker.sock
+          export DOCKER_HOST=unix:///var/run/docker.sock
+          if ! docker info >/dev/null 2>&1; then
+            echo "::error::Cannot talk to host dockerd as $(whoami)."
+            echo "Add the runner user to the docker group and restart the runner:"
+            echo "  sudo usermod -aG docker $(whoami)"
+            echo "  sudo systemctl restart actions.runner.*   # or your runner service name"
+            ls -la /var/run/docker.sock || true
+            docker version || true
+            exit 1
+          fi
           docker info
+          echo "DOCKER_HOST=unix:///var/run/docker.sock" >> "$GITHUB_ENV"
       - name: Validate Infisical configuration
         env:
           INFISICAL_IDENTITY_ID: ${{ secrets.INFISICAL_IDENTITY_ID }}
