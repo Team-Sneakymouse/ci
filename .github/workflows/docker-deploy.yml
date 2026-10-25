@@ -34,6 +34,31 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
+      - name: Ensure Docker daemon
+        run: |
+          if docker info >/dev/null 2>&1; then
+            echo "Docker daemon already reachable"
+            exit 0
+          fi
+          echo "Docker not reachable; trying to start the service"
+          if command -v systemctl >/dev/null 2>&1; then
+            sudo systemctl start docker || true
+          fi
+          if command -v service >/dev/null 2>&1; then
+            sudo service docker start || true
+          fi
+          for _ in $(seq 1 30); do
+            if docker info >/dev/null 2>&1; then
+              echo "Docker ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::No Docker daemon on this runner (/var/run/docker.sock missing)."
+          echo "Install and enable Docker on the self-hosted runner (alphaarcadeus), then re-run."
+          docker version || true
+          ls -la /var/run/docker.sock || true
+          exit 1
       - name: Validate Infisical configuration
         env:
           INFISICAL_IDENTITY_ID: ${{ secrets.INFISICAL_IDENTITY_ID }}
