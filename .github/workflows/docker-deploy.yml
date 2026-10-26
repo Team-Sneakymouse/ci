@@ -34,34 +34,6 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Ensure Docker daemon
-        run: |
-          set -euo pipefail
-          # Prefer the host Docker CLI; never start a nested dockerd from the job.
-          export PATH="/usr/bin:/bin:${PATH:-}"
-          hash -r || true
-          echo "whoami=$(whoami) groups=$(id -nG)"
-          echo "docker binary: $(command -v docker)"
-          docker version || true
-          if [ ! -S /var/run/docker.sock ]; then
-            echo "::error::Host Docker socket /var/run/docker.sock is missing."
-            echo "The Actions runner must see the host dockerd socket."
-            exit 1
-          fi
-          # Runner user is often not in the docker group.
-          sudo chmod 666 /var/run/docker.sock
-          export DOCKER_HOST=unix:///var/run/docker.sock
-          if ! docker info >/dev/null 2>&1; then
-            echo "::error::Cannot talk to host dockerd as $(whoami)."
-            echo "Add the runner user to the docker group and restart the runner:"
-            echo "  sudo usermod -aG docker $(whoami)"
-            echo "  sudo systemctl restart actions.runner.*   # or your runner service name"
-            ls -la /var/run/docker.sock || true
-            docker version || true
-            exit 1
-          fi
-          docker info
-          echo "DOCKER_HOST=unix:///var/run/docker.sock" >> "$GITHUB_ENV"
       - name: Validate Infisical configuration
         env:
           INFISICAL_IDENTITY_ID: ${{ secrets.INFISICAL_IDENTITY_ID }}
@@ -78,14 +50,23 @@ jobs:
           project-slug: lords-of-minecraft
           env-slug: prod
           secret-path: /Registry
-      - name: Log in to registry
+      - name: Check registry credentials
         run: |
           : "${REGISTRY_HOST:?Infisical must provide REGISTRY_HOST}"
           : "${REGISTRY_USER:?Infisical must provide REGISTRY_USER}"
           : "${REGISTRY_PASSWORD:?Infisical must provide REGISTRY_PASSWORD}"
-          printf '%s' "$REGISTRY_PASSWORD" | docker login "$REGISTRY_HOST" \
-            --username "$REGISTRY_USER" --password-stdin
+      - name: Log in to registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY_HOST }}
+          username: ${{ env.REGISTRY_USER }}
+          password: ${{ env.REGISTRY_PASSWORD }}
+      # Build on the shared rootless BuildKit service (see the runner compose file)
+      # instead of a Docker daemon; the runner containers have no Docker socket.
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+        with:
+          driver: remote
+          endpoint: tcp://buildkitd:1234
       - name: Build and push
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
@@ -109,6 +90,3 @@ jobs:
           curl --fail-with-body --show-error --silent --connect-timeout 10 --max-time 120 \
             --request POST --header "Authorization: Bearer $WATCHTOWER_TOKEN" \
             "$WATCHTOWER_URL"
-      - name: Log out of registry
-        if: always() && env.REGISTRY_HOST != ''
-        run: docker logout "$REGISTRY_HOST"
