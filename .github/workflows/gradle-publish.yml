@@ -38,13 +38,13 @@ jobs:
         shell: bash
         working-directory: ${{ inputs.project-directory }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Set up Java 25
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: '25'
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
         with:
           # Runners keep a persistent shared Gradle home; skip the Actions cache round-trip.
           cache-disabled: true
@@ -60,7 +60,7 @@ jobs:
           : "${INFISICAL_DOMAIN:?Set INFISICAL_DOMAIN}"
       - name: Fetch Maven credentials
         if: inputs.publish
-        uses: Infisical/secrets-action@v1.0.16
+        uses: Infisical/secrets-action@d2e351f16c6ca20d17c85e6c992e04bdeb64e87d # v1.0.18
         with:
           method: oidc
           identity-id: ${{ secrets.INFISICAL_IDENTITY_ID }}
