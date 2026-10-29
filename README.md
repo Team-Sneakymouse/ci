@@ -47,6 +47,11 @@ pushes an image tagged `latest`, then fetches `/Watchtower` and requests an upda
 Required credentials are checked and failed HTTP responses fail the job. The
 Watchtower request has a 10-second connection timeout and a 120-second total timeout.
 
+Images are labeled `org.opencontainers.image.revision` (the caller's commit SHA)
+and `org.opencontainers.image.source` (the caller's repository URL), and receive
+the build argument `GIT_SHA`. A Dockerfile that wants the commit at runtime adds
+`ARG GIT_SHA` and `ENV GIT_SHA=$GIT_SHA`; other Dockerfiles ignore it.
+
 ```yaml
 permissions:
   contents: read

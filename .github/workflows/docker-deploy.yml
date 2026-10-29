@@ -74,6 +74,14 @@ jobs:
           file: ${{ inputs.dockerfile }}
           push: true
           tags: ${{ env.REGISTRY_HOST }}/${{ inputs.image-name }}:latest
+          # Lets consumers map a running image back to its commit. In a reusable
+          # workflow, github.sha and github.repository refer to the caller.
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          # Dockerfiles may expose it at runtime with `ARG GIT_SHA` + `ENV GIT_SHA=$GIT_SHA`.
+          build-args: |
+            GIT_SHA=${{ github.sha }}
       - name: Fetch Watchtower credentials
         uses: Infisical/secrets-action@d2e351f16c6ca20d17c85e6c992e04bdeb64e87d # v1.0.18
         with:
