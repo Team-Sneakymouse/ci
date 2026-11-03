@@ -24,6 +24,14 @@ to always run. Other events (`workflow_dispatch`, `pull_request`), a branch's fi
 push, empty commits, and pushes whose previous commit can't be fetched (for example
 after a force-push) always run. Renames count as changes to both paths.
 
+The `changes` job writes its decision to the run's summary: on a skip, the list of
+documentation files that changed; otherwise, a one-line reason for running.
+
+A skipped run still finishes as `success`. The Mother-Mouse Discord bot reports it
+as skipped by finding the gate job, shown on GitHub as `<caller job> / changes`,
+and checking that every other job was skipped. If you rename the `changes` job,
+coordinate with Mother-Mouse-Discord so the bot keeps matching it.
+
 ## Gradle publishing
 
 `.github/workflows/gradle-publish.yml` builds and checks with Temurin Java 25,

@@ -39,6 +39,8 @@ permissions:
   id-token: write
 
 jobs:
+  # The Mother-Mouse Discord bot matches this job as "<caller job> / changes" to
+  # report docs-only runs as skipped. If renaming it, coordinate with Mother-Mouse-Discord.
   changes:
     runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: 5
@@ -59,16 +61,26 @@ jobs:
           # Only pushes whose changed files all match skip-paths are skipped. Manual
           # runs, new branches, empty commits and unreachable history always run.
           run=true
+          reason=
+          skippable=()
           if [[ $EVENT_NAME != push || -z ${SKIP_PATHS//[[:space:]]/} ]]; then
-            echo "Not a push, or skip-paths is empty; running."
+            if [[ $EVENT_NAME != push ]]; then
+              reason="not a push (event: $EVENT_NAME)"
+            else
+              reason="skip-paths is empty"
+            fi
+            echo "Running: $reason."
           elif [[ -z $BEFORE || $BEFORE =~ ^0+$ ]]; then
-            echo "No previous commit to compare against; running."
+            reason="no previous commit to compare against"
+            echo "Running: $reason."
           elif ! git fetch --no-tags --depth=1 --filter=blob:none origin "$BEFORE"; then
+            reason="could not fetch previous commit $BEFORE (force-push?)"
             echo "::warning::Could not fetch $BEFORE (force-push?); running."
           else
             mapfile -t files < <(git diff --name-only --no-renames "$BEFORE" "$GITHUB_SHA")
             mapfile -t patterns < <(sed 's/^[[:space:]]*//; s/[[:space:]]*$//; /^$/d' <<< "$SKIP_PATHS")
             if (( ${#files[@]} > 0 )); then run=false; fi
+            outside=0
             for file in "${files[@]}"; do
               matched=false
               for pattern in "${patterns[@]}"; do
@@ -77,15 +89,29 @@ jobs:
               done
               if [[ $matched == true ]]; then
                 echo "skippable: $file"
+                skippable+=("$file")
               else
                 echo "needs run: $file"
                 run=true
+                outside=$((outside + 1))
               fi
             done
+            if (( ${#files[@]} == 0 )); then
+              reason="no files changed (empty commit)"
+            else
+              reason="$outside of ${#files[@]} changed files are outside skip-paths"
+            fi
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
           if [[ $run == false ]]; then
             echo "::notice::Only files matching skip-paths changed; skipping."
+            {
+              echo "### Skipped: only documentation files changed"
+              echo
+              for file in "${skippable[@]}"; do echo "- \`$file\`"; done
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Running: $reason" >> "$GITHUB_STEP_SUMMARY"
           fi
 
   publish:
