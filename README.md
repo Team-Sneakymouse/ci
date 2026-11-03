@@ -5,6 +5,25 @@ path filters, prerequisite jobs and concurrency policy. The shared jobs check ou
 the caller's repository and receive only its two Infisical connection secrets.
 Both shared workflows run on the organization's Linux x64 runner `alphaarcadeus`.
 
+## Skipping documentation-only pushes
+
+Both workflows start with a short `changes` job. On a `push`, it lists the files
+changed between `github.event.before` and the pushed commit. If every file matches
+the `skip-paths` input, the build/publish/deploy job is skipped. Defaults:
+
+```yaml
+skip-paths: |
+  *.md
+  docs/*
+  LICENSE*
+```
+
+Patterns are bash globs matched against repository-root paths, where `*` also
+matches `/` (so `*.md` covers Markdown files in any folder). Pass `skip-paths: ''`
+to always run. Other events (`workflow_dispatch`, `pull_request`), a branch's first
+push, empty commits, and pushes whose previous commit can't be fetched (for example
+after a force-push) always run. Renames count as changes to both paths.
+
 ## Gradle publishing
 
 `.github/workflows/gradle-publish.yml` builds and checks with Temurin Java 25,
@@ -31,6 +50,7 @@ Inputs:
 - `publish`: defaults to `true`; `false` builds/checks without fetching secrets or publishing.
 - `runs-on`: JSON runner name or label array; defaults to
   `["self-hosted", "Linux", "X64", "alphaarcadeus"]`.
+- `skip-paths`: see [Skipping documentation-only pushes](#skipping-documentation-only-pushes).
 
 Callers: SneakyBagOfHolding, SneakyConfigurableVoice, SneakyDiagnostics,
 SneakyDiscordLink, SneakyEconomy, SneakyGroundItems, SneakyInventoryUtils,
@@ -72,6 +92,7 @@ Inputs:
 - `image-name`: required image name beneath `REGISTRY_HOST`.
 - `context`: local build context; defaults to `.`.
 - `dockerfile`: optional Dockerfile path; defaults to the context's `Dockerfile`.
+- `skip-paths`: see [Skipping documentation-only pushes](#skipping-documentation-only-pushes).
 
 Callers: dclock, Kanboard, media, Mother-Mouse-Discord, OverlayV1, shop,
 SneakySTTEvents and SneakySpeedTest. STT retains its `stt-server/moonshine`

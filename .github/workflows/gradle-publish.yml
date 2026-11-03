@@ -19,6 +19,15 @@ on:
         description: JSON runner name or label array.
         type: string
         default: '["self-hosted", "Linux", "X64", "alphaarcadeus"]'
+      skip-paths:
+        description: >-
+          Newline-separated globs, where * also matches /. A push that changes only
+          matching files is skipped. Empty to always run.
+        type: string
+        default: |
+          *.md
+          docs/*
+          LICENSE*
     secrets:
       INFISICAL_IDENTITY_ID:
         required: false
@@ -30,7 +39,58 @@ permissions:
   id-token: write
 
 jobs:
+  changes:
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Check for changes outside skip-paths
+        id: check
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          SKIP_PATHS: ${{ inputs.skip-paths }}
+        run: |
+          # Only pushes whose changed files all match skip-paths are skipped. Manual
+          # runs, new branches, empty commits and unreachable history always run.
+          run=true
+          if [[ $EVENT_NAME != push || -z ${SKIP_PATHS//[[:space:]]/} ]]; then
+            echo "Not a push, or skip-paths is empty; running."
+          elif [[ -z $BEFORE || $BEFORE =~ ^0+$ ]]; then
+            echo "No previous commit to compare against; running."
+          elif ! git fetch --no-tags --depth=1 --filter=blob:none origin "$BEFORE"; then
+            echo "::warning::Could not fetch $BEFORE (force-push?); running."
+          else
+            mapfile -t files < <(git diff --name-only --no-renames "$BEFORE" "$GITHUB_SHA")
+            mapfile -t patterns < <(sed 's/^[[:space:]]*//; s/[[:space:]]*$//; /^$/d' <<< "$SKIP_PATHS")
+            if (( ${#files[@]} > 0 )); then run=false; fi
+            for file in "${files[@]}"; do
+              matched=false
+              for pattern in "${patterns[@]}"; do
+                # shellcheck disable=SC2053 # unquoted on purpose: glob match
+                if [[ $file == $pattern ]]; then matched=true; break; fi
+              done
+              if [[ $matched == true ]]; then
+                echo "skippable: $file"
+              else
+                echo "needs run: $file"
+                run=true
+              fi
+            done
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          if [[ $run == false ]]; then
+            echo "::notice::Only files matching skip-paths changed; skipping."
+          fi
+
   publish:
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
     runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: 20
     defaults:
