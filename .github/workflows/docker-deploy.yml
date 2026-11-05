@@ -29,6 +29,9 @@ on:
         required: true
       INFISICAL_DOMAIN:
         required: true
+      WATCHTOWER_URL:
+        description: Optional; replaces the Watchtower URL from Infisical.
+        required: false
 
 permissions:
   contents: read
@@ -178,8 +181,12 @@ jobs:
           env-slug: prod
           secret-path: /Watchtower
       - name: Trigger Watchtower
+        env:
+          # Separate name: the Infisical step exports WATCHTOWER_URL to the job env.
+          WATCHTOWER_URL_OVERRIDE: ${{ secrets.WATCHTOWER_URL }}
         run: |
-          : "${WATCHTOWER_URL:?Infisical must provide WATCHTOWER_URL}"
+          WATCHTOWER_URL=${WATCHTOWER_URL_OVERRIDE:-$WATCHTOWER_URL}
+          : "${WATCHTOWER_URL:?Set the WATCHTOWER_URL secret or provide it in Infisical}"
           : "${WATCHTOWER_TOKEN:?Infisical must provide WATCHTOWER_TOKEN}"
           curl --fail-with-body --show-error --silent --connect-timeout 10 --max-time 120 \
             --request POST --header "Authorization: Bearer $WATCHTOWER_TOKEN" \

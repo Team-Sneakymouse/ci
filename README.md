@@ -102,6 +102,11 @@ Inputs:
 - `dockerfile`: optional Dockerfile path; defaults to the context's `Dockerfile`.
 - `skip-paths`: see [Skipping documentation-only pushes](#skipping-documentation-only-pushes).
 
+Optional secrets:
+
+- `WATCHTOWER_URL`: replaces the URL from Infisical `/Watchtower`, for services
+  updated by a different Watchtower. `WATCHTOWER_TOKEN` still comes from Infisical.
+
 Callers: dclock, Kanboard, media, Mother-Mouse-Discord, OverlayV1, shop,
 SneakySTTEvents and SneakySpeedTest. STT retains its `stt-server/moonshine`
 context and path filters. SpeedTest's tests and optional-deployment configuration
