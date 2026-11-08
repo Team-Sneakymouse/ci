@@ -130,36 +130,19 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
-      # Shared runners keep a persistent GRADLE_USER_HOME (often /gradle-home). Concurrent
-      # publishes from different repos raced on caches/journal-1.lock and timed out.
-      # Give each repo its own home (private journal) but reuse pre-seeded wrapper dists and
-      # dependency caches — the runners often cannot re-download from services.gradle.org.
-      - name: Isolate Gradle user home per repository
-        run: |
-          base="${GRADLE_USER_HOME:-$HOME/.gradle}"
-          home="$base/repos/${GITHUB_REPOSITORY}"
-          mkdir -p "$home/wrapper" "$home/caches"
-          if [[ -d $base/wrapper/dists ]]; then
-            ln -sfn "$base/wrapper/dists" "$home/wrapper/dists"
-          fi
-          if [[ -d $base/caches ]]; then
-            for entry in "$base/caches"/*; do
-              name=${entry##*/}
-              # journal-1 is what contended across repos; keep it private per home.
-              if [[ $name == journal-1 || $name == journal-1.* ]]; then
-                continue
-              fi
-              ln -sfn "$entry" "$home/caches/$name"
-            done
-          fi
-          echo "GRADLE_USER_HOME=$home" >> "$GITHUB_ENV"
-          echo "Using GRADLE_USER_HOME=$home (shared dists/caches from $base)"
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
         with:
-          # Persistent per-repo Gradle home on the runner; skip the Actions cache round-trip.
+          # Runners keep a persistent shared Gradle home; skip the Actions cache round-trip.
           cache-disabled: true
+      # GitHub concurrency groups are per-repository, so cross-repo publishes on the shared
+      # runner still race on GRADLE_USER_HOME caches/journal-1.lock. Serialize Gradle with
+      # flock on that home. Keep using the shared home — the runner often cannot re-download
+      # distributions from services.gradle.org.
       - name: Build and check
-        run: bash ./gradlew build --no-daemon --console=plain
+        run: |
+          lock="${GRADLE_USER_HOME:-$HOME/.gradle}/ci-gradle.lock"
+          mkdir -p "$(dirname "$lock")"
+          flock "$lock" bash ./gradlew build --no-daemon --console=plain
       - name: Validate Infisical configuration
         if: inputs.publish
         env:
@@ -188,4 +171,6 @@ jobs:
           : "${PUBLISH_TASK:?Set publish-task}"
           export ORG_GRADLE_PROJECT_sneakyrpUsername="$MAVEN_USERNAME"
           export ORG_GRADLE_PROJECT_sneakyrpPassword="$MAVEN_PASSWORD"
-          bash ./gradlew "$PUBLISH_TASK" --no-daemon --console=plain
+          lock="${GRADLE_USER_HOME:-$HOME/.gradle}/ci-gradle.lock"
+          mkdir -p "$(dirname "$lock")"
+          flock "$lock" bash ./gradlew "$PUBLISH_TASK" --no-daemon --console=plain
