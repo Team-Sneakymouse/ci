@@ -132,14 +132,28 @@ jobs:
           java-version: '25'
       # Shared runners keep a persistent GRADLE_USER_HOME (often /gradle-home). Concurrent
       # publishes from different repos raced on caches/journal-1.lock and timed out.
-      # Keep the warm disk cache, but isolate it per calling repository.
+      # Give each repo its own home (private journal) but reuse pre-seeded wrapper dists and
+      # dependency caches — the runners often cannot re-download from services.gradle.org.
       - name: Isolate Gradle user home per repository
         run: |
           base="${GRADLE_USER_HOME:-$HOME/.gradle}"
           home="$base/repos/${GITHUB_REPOSITORY}"
-          mkdir -p "$home"
+          mkdir -p "$home/wrapper" "$home/caches"
+          if [[ -d $base/wrapper/dists ]]; then
+            ln -sfn "$base/wrapper/dists" "$home/wrapper/dists"
+          fi
+          if [[ -d $base/caches ]]; then
+            for entry in "$base/caches"/*; do
+              name=${entry##*/}
+              # journal-1 is what contended across repos; keep it private per home.
+              if [[ $name == journal-1 || $name == journal-1.* ]]; then
+                continue
+              fi
+              ln -sfn "$entry" "$home/caches/$name"
+            done
+          fi
           echo "GRADLE_USER_HOME=$home" >> "$GITHUB_ENV"
-          echo "Using GRADLE_USER_HOME=$home"
+          echo "Using GRADLE_USER_HOME=$home (shared dists/caches from $base)"
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
         with:
           # Persistent per-repo Gradle home on the runner; skip the Actions cache round-trip.

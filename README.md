@@ -39,7 +39,9 @@ then fetches `/Maven` from Infisical and publishes to the Sneakyrp repository.
 Projects must also configure their Java/Kotlin toolchains and bytecode targets to 25.
 On the shared self-hosted runner, each publish job sets `GRADLE_USER_HOME` to a
 per-repository directory under the runner's persistent Gradle home so concurrent
-publishes do not contend on `caches/journal-1.lock`.
+publishes do not contend on `caches/journal-1.lock`. Wrapper distributions and
+dependency caches are symlinked from the shared home so jobs do not re-download
+Gradle when the runner cannot reach `services.gradle.org`.
 
 ```yaml
 permissions:
