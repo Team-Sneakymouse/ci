@@ -130,9 +130,19 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
+      # Shared runners keep a persistent GRADLE_USER_HOME (often /gradle-home). Concurrent
+      # publishes from different repos raced on caches/journal-1.lock and timed out.
+      # Keep the warm disk cache, but isolate it per calling repository.
+      - name: Isolate Gradle user home per repository
+        run: |
+          base="${GRADLE_USER_HOME:-$HOME/.gradle}"
+          home="$base/repos/${GITHUB_REPOSITORY}"
+          mkdir -p "$home"
+          echo "GRADLE_USER_HOME=$home" >> "$GITHUB_ENV"
+          echo "Using GRADLE_USER_HOME=$home"
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
         with:
-          # Runners keep a persistent shared Gradle home; skip the Actions cache round-trip.
+          # Persistent per-repo Gradle home on the runner; skip the Actions cache round-trip.
           cache-disabled: true
       - name: Build and check
         run: bash ./gradlew build --no-daemon --console=plain
