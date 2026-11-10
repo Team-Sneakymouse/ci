@@ -15,14 +15,15 @@ on:
         description: Optional Dockerfile path; defaults to Dockerfile in the context.
         type: string
         default: ''
-      artifact:
+      shared-files:
         description: >-
-          Optional artifact uploaded by an earlier job of the caller's run, unpacked into
-          artifact-path before the build (for files the build needs but Git does not hold).
+          Optional directory below /opt/hostedtoolcache, the volume every runner container mounts,
+          written by an earlier job of the caller's run. Its contents are copied into shared-files-path
+          before the build (for files the build needs but Git does not hold). The caller removes it.
         type: string
         default: ''
-      artifact-path:
-        description: Where the artifact is unpacked, relative to the repository root; defaults to the context.
+      shared-files-path:
+        description: Where shared-files is copied, relative to the repository root; defaults to the context.
         type: string
         default: ''
       skip-paths:
@@ -133,12 +134,18 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Download build input artifact
-        if: inputs.artifact != ''
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: ${{ inputs.artifact }}
-          path: ${{ inputs.artifact-path || inputs.context }}
+      # Not an artifact: on the organization's Free plan the artifact storage quota runs out within the month.
+      - name: Copy build input from the runners' shared volume
+        if: inputs.shared-files != ''
+        env:
+          SOURCE: ${{ inputs.shared-files }}
+          DESTINATION: ${{ inputs.shared-files-path || inputs.context }}
+        run: |
+          source=$(realpath -e "$SOURCE")
+          [[ $source == /opt/hostedtoolcache/?* ]] || { echo "::error::shared-files must be below /opt/hostedtoolcache"; exit 1; }
+          mkdir -p "$DESTINATION"
+          cp -a "$source/." "$DESTINATION/"
+          ls -l "$DESTINATION"
       - name: Validate Infisical configuration
         env:
           INFISICAL_IDENTITY_ID: ${{ secrets.INFISICAL_IDENTITY_ID }}

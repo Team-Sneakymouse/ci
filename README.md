@@ -104,10 +104,12 @@ Inputs:
 - `image-name`: required image name beneath `REGISTRY_HOST`.
 - `context`: local build context; defaults to `.`.
 - `dockerfile`: optional Dockerfile path; defaults to the context's `Dockerfile`.
-- `artifact`: optional artifact from an earlier job of the caller's run, unpacked before
-  the build, for build inputs Git does not hold (for example plugin jars copied from a
-  server). The earlier job uploads it with `actions/upload-artifact`.
-- `artifact-path`: where `artifact` is unpacked, relative to the repository root;
+- `shared-files`: optional directory below `/opt/hostedtoolcache` (the volume all
+  runner containers mount) that an earlier job of the caller's run filled, for build
+  inputs Git does not hold (for example plugin jars copied from a server). Its contents
+  are copied into the build before it starts; the caller removes the directory. Artifacts
+  would be simpler, but the organization's Free-plan artifact quota runs out each month.
+- `shared-files-path`: where `shared-files` is copied, relative to the repository root;
   defaults to `context`.
 - `skip-paths`: see [Skipping documentation-only pushes](#skipping-documentation-only-pushes).
 
@@ -118,7 +120,7 @@ Optional secrets:
 
 Callers: craftengine-resources, dclock, Kanboard, media, Mother-Mouse-Discord, OverlayV1, shop,
 SneakySTTEvents and SneakySpeedTest. craftengine-resources builds its resource builder
-from `builder/`, with plugin jars passed in through `artifact`, and updates it through
+from `builder/`, with plugin jars passed in through `shared-files`, and updates it through
 the Watchtower on USArcadeus (`WATCHTOWER_URL`). STT retains its `stt-server/moonshine`
 context and path filters. SpeedTest's tests and optional-deployment configuration
 check remain in a prerequisite job; deployment is skipped when unconfigured.
