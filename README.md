@@ -104,6 +104,11 @@ Inputs:
 - `image-name`: required image name beneath `REGISTRY_HOST`.
 - `context`: local build context; defaults to `.`.
 - `dockerfile`: optional Dockerfile path; defaults to the context's `Dockerfile`.
+- `artifact`: optional artifact from an earlier job of the caller's run, unpacked before
+  the build, for build inputs Git does not hold (for example plugin jars copied from a
+  server). The earlier job uploads it with `actions/upload-artifact`.
+- `artifact-path`: where `artifact` is unpacked, relative to the repository root;
+  defaults to `context`.
 - `skip-paths`: see [Skipping documentation-only pushes](#skipping-documentation-only-pushes).
 
 Optional secrets:
@@ -111,8 +116,10 @@ Optional secrets:
 - `WATCHTOWER_URL`: replaces the URL from Infisical `/Watchtower`, for services
   updated by a different Watchtower. `WATCHTOWER_TOKEN` still comes from Infisical.
 
-Callers: dclock, Kanboard, media, Mother-Mouse-Discord, OverlayV1, shop,
-SneakySTTEvents and SneakySpeedTest. STT retains its `stt-server/moonshine`
+Callers: craftengine-resources, dclock, Kanboard, media, Mother-Mouse-Discord, OverlayV1, shop,
+SneakySTTEvents and SneakySpeedTest. craftengine-resources builds its resource builder
+from `builder/`, with plugin jars passed in through `artifact`, and updates it through
+the Watchtower on USArcadeus (`WATCHTOWER_URL`). STT retains its `stt-server/moonshine`
 context and path filters. SpeedTest's tests and optional-deployment configuration
 check remain in a prerequisite job; deployment is skipped when unconfigured.
 
