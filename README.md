@@ -75,9 +75,10 @@ commit-derived version; its separate API release workflow is removed.
 ## Docker deployment
 
 `.github/workflows/docker-deploy.yml` fetches `/Registry`, logs in, builds and
-pushes an image tagged `latest`, then fetches `/Watchtower` and requests an update.
-Required credentials are checked and failed HTTP responses fail the job. The
-Watchtower request has a 10-second connection timeout and a 120-second total timeout.
+pushes an image tagged `latest`. Required credentials are checked before the build.
+The workflow does not trigger a rollout: the registry's notification webhook asks
+the Watchtower instances to update after every push (see `/docker/registry/config.yml`
+on alphaarcadeus).
 
 Images are labeled `org.opencontainers.image.revision` (the caller's commit SHA)
 and `org.opencontainers.image.source` (the caller's repository URL), and receive
@@ -113,15 +114,10 @@ Inputs:
   defaults to `context`.
 - `skip-paths`: see [Skipping documentation-only pushes](#skipping-documentation-only-pushes).
 
-Optional secrets:
-
-- `WATCHTOWER_URL`: replaces the URL from Infisical `/Watchtower`, for services
-  updated by a different Watchtower. `WATCHTOWER_TOKEN` still comes from Infisical.
-
 Callers: craftengine-resources, dclock, Kanboard, media, Mother-Mouse-Discord, OverlayV1, shop,
 SneakySTTEvents and SneakySpeedTest. craftengine-resources builds its resource builder
 from `builder/`, with plugin jars passed in through `shared-files`, and updates it through
-the Watchtower on USArcadeus (`WATCHTOWER_URL`). STT retains its `stt-server/moonshine`
+the Watchtower on USArcadeus, triggered by the registry webhook. STT retains its `stt-server/moonshine`
 context and path filters. SpeedTest's tests and optional-deployment configuration
 check remain in a prerequisite job; deployment is skipped when unconfigured.
 
