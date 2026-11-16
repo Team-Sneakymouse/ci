@@ -72,6 +72,39 @@ publication. CraftEngine uses `integration` and its existing self-hosted runner.
 Diagnostics publishes its API, plugin and Ignite companion together with the same
 commit-derived version; its separate API release workflow is removed.
 
+## Maven read access
+
+Reading `maven.sneakyrp.com` needs a read token. Builds get it from outside the
+repository, so build files carry no read credentials:
+
+- `maven/sneakyrp-maven.init.gradle` is a Gradle init script. Placed in
+  `init.d/` of the Gradle user home, it gives every dependency repository on that
+  host the Gradle properties `sneakyrpReadUsername` / `sneakyrpReadPassword`.
+  Publishing repositories and repositories that declare their own credentials are
+  left alone.
+- `maven/SneakyrpMavenSetup.java` sets up a developer machine. It embeds a copy of
+  the init script: change both together.
+
+Developer machine, once (Java 17 or newer):
+
+```sh
+java maven/SneakyrpMavenSetup.java
+```
+
+It asks for the token name and secret in a window with a hidden field (in the
+terminal when there is no display), checks the token once, then writes the init
+script and the two properties into the Gradle user home. A rejected token changes
+nothing; do not retry it.
+
+Cloud or CI environment without a prompt: copy the init script into
+`$GRADLE_USER_HOME/init.d/` (default `~/.gradle/init.d/`) and provide the token as
+`ORG_GRADLE_PROJECT_sneakyrpReadUsername` and
+`ORG_GRADLE_PROJECT_sneakyrpReadPassword`.
+
+The shared runner `alphaarcadeus` already has the script and a read token in its
+Gradle home, so callers of `gradle-publish.yml` need nothing. A workflow on a
+GitHub-hosted runner has neither.
+
 ## Docker deployment
 
 `.github/workflows/docker-deploy.yml` fetches `/Registry`, logs in, builds and

@@ -1,0 +1,44 @@
+// Team Sneakymouse: credentials for maven.sneakyrp.com.
+//
+// Every Maven repository on that host that a build reads from gets the credentials below, so the
+// build files need no change. Publishing repositories are not touched; they keep their own.
+//
+// Install: run SneakyrpMavenSetup.java beside this file, or copy this file to ~/.gradle/init.d/ and add to
+// ~/.gradle/gradle.properties:
+//   sneakyrpReadUsername=<token name>
+//   sneakyrpReadPassword=<token secret>
+// In CI or a cloud session set ORG_GRADLE_PROJECT_sneakyrpReadUsername / ..Password instead.
+// Without the read pair, sneakyrpUsername / sneakyrpPassword (the publish pair) is used.
+
+def sneakyrpHost = 'maven.sneakyrp.com'
+def sneakyrpWarned = new java.util.concurrent.atomic.AtomicBoolean()
+
+def sneakyrpAuth = { repositories, providers, logger ->
+    repositories.withType(MavenArtifactRepository).configureEach { repo ->
+        if (repo.url?.host != sneakyrpHost) return
+        def user = providers.gradleProperty('sneakyrpReadUsername').orElse(providers.gradleProperty('sneakyrpUsername')).orNull
+        def pass = providers.gradleProperty('sneakyrpReadPassword').orElse(providers.gradleProperty('sneakyrpPassword')).orNull
+        if (!user || !pass) {
+            if (sneakyrpWarned.compareAndSet(false, true)) {
+                logger.warn("maven.sneakyrp.com needs credentials: set sneakyrpReadUsername and sneakyrpReadPassword in ~/.gradle/gradle.properties")
+            }
+            return
+        }
+        try {
+            if (repo.credentials.username != null) return // the build file brought its own
+            repo.credentials { username = user; password = pass }
+            repo.authentication { create('basic', org.gradle.authentication.http.BasicAuthentication) }
+        } catch (Exception ignored) {
+            // The build file declared credentials in its own way: leave them alone.
+        }
+    }
+}
+
+beforeSettings { settings ->
+    sneakyrpAuth(settings.pluginManagement.repositories, settings.providers, logger)
+    sneakyrpAuth(settings.dependencyResolutionManagement.repositories, settings.providers, logger)
+}
+allprojects { project ->
+    sneakyrpAuth(project.buildscript.repositories, project.providers, project.logger)
+    sneakyrpAuth(project.repositories, project.providers, project.logger)
+}
